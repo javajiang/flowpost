@@ -28,7 +28,7 @@ export default function Home() {
           <a href="#features">Features</a>
           <a href="#pricing">Pricing</a>
           <a href="#login">Log in</a>
-          <Link href="/editor" className="cta-link">
+          <Link href="/dashboard" className="cta-link">
             Get started
           </Link>
         </nav>
@@ -44,7 +44,7 @@ export default function Home() {
         <h1>Create and distribute content in one place</h1>
         <p>Turn text, images, and video into publish-ready content.</p>
 
-        <Link href="/editor" className="hero-cta">
+        <Link href="/dashboard" className="hero-cta">
           Get started
         </Link>
       </section>
