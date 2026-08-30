@@ -538,10 +538,57 @@ a {
   padding: 24px;
 }
 
-.editor-placeholder {
-  margin: 0;
-  font-size: 22px;
+.editor-panel.is-dragging {
+  border-color: rgba(183, 235, 150, 0.9);
+  box-shadow: inset 0 0 0 2px rgba(183, 235, 150, 0.2);
+}
+
+.editor-mode-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.mode-pill {
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(31, 47, 47, 0.12);
+  background: #fff;
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.mode-pill.active {
+  background: rgba(183, 235, 150, 0.24);
+  color: var(--text);
+}
+
+.draft-textarea {
+  width: 100%;
+  min-height: 460px;
+  border: none;
+  outline: none;
+  resize: none;
+  font: inherit;
+  font-size: 24px;
+  line-height: 1.5;
+  color: var(--text);
+  background: transparent;
+}
+
+.draft-textarea::placeholder {
   color: rgba(31, 47, 47, 0.35);
+}
+
+.editor-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  font-size: 14px;
+  color: var(--muted);
 }
 
 .upload-card {
@@ -558,6 +605,20 @@ a {
   padding: 16px;
   color: var(--muted);
   background: rgba(255, 255, 255, 0.68);
+  cursor: pointer;
+  gap: 8px;
+}
+
+.upload-card img {
+  width: 100%;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.upload-icon {
+  font-size: 30px;
+  line-height: 1;
 }
 
 .editor-tools {
@@ -580,12 +641,38 @@ a {
   background: rgba(255, 255, 255, 0.8);
 }
 
+.preview-shell {
+  margin-top: 28px;
+}
+
+.preview-shell img {
+  width: min(100%, 280px);
+  display: block;
+  margin: 0 auto 16px;
+  max-height: 280px;
+  object-fit: cover;
+  border-radius: 24px;
+  border: 1px solid rgba(31, 47, 47, 0.08);
+}
+
 .preview-empty {
-  margin: 28px auto;
+  margin: 0 auto 16px;
   width: min(100%, 280px);
   height: 360px;
   border-radius: 24px;
   background: rgba(31, 47, 47, 0.06);
+}
+
+.sr-only-file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .compose-footer {
@@ -654,7 +741,8 @@ a {
 
   .upload-card {
     position: static;
-    margin-top: 260px;
+    margin-top: 18px;
+    width: 100%;
   }
 
   .editor-tools {
