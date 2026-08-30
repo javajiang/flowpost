@@ -518,6 +518,35 @@ a {
   margin-bottom: 20px;
 }
 
+.editor-entry-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.editor-entry-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.entry-pill {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(31, 47, 47, 0.1);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.entry-pill-muted {
+  color: var(--muted);
+  background: transparent;
+}
+
 .network-pill {
   min-height: 64px;
   min-width: 64px;
@@ -541,28 +570,6 @@ a {
 .editor-panel.is-dragging {
   border-color: rgba(183, 235, 150, 0.9);
   box-shadow: inset 0 0 0 2px rgba(183, 235, 150, 0.2);
-}
-
-.editor-mode-row {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  margin-bottom: 18px;
-}
-
-.mode-pill {
-  min-height: 42px;
-  padding: 0 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(31, 47, 47, 0.12);
-  background: #fff;
-  font-size: 16px;
-  color: var(--muted);
-}
-
-.mode-pill.active {
-  background: rgba(183, 235, 150, 0.24);
-  color: var(--text);
 }
 
 .draft-textarea {
@@ -589,6 +596,10 @@ a {
   margin-top: 10px;
   font-size: 14px;
   color: var(--muted);
+}
+
+.editor-meta span:last-child {
+  text-align: right;
 }
 
 .upload-card {
@@ -690,6 +701,90 @@ a {
   font-size: 18px;
 }
 
+.import-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(31, 47, 47, 0.26);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  z-index: 20;
+}
+
+.import-modal {
+  width: min(520px, 100%);
+  border-radius: 24px;
+  border: 1px solid rgba(31, 47, 47, 0.1);
+  background: #fffdf8;
+  box-shadow: 0 24px 64px rgba(31, 47, 47, 0.18);
+  padding: 24px;
+}
+
+.import-modal h3 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.import-modal p {
+  margin: 10px 0 18px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.import-modal input,
+.import-modal textarea {
+  width: 100%;
+  min-height: 56px;
+  border-radius: 16px;
+  border: 1px solid rgba(31, 47, 47, 0.14);
+  padding: 0 16px;
+  font: inherit;
+  font-size: 16px;
+  background: #fff;
+}
+
+.import-modal textarea {
+  min-height: 160px;
+  padding-top: 14px;
+  resize: vertical;
+}
+
+.import-modal input:focus,
+.import-modal textarea:focus {
+  outline: 2px solid rgba(183, 235, 150, 0.9);
+  outline-offset: 2px;
+}
+
+.import-error {
+  margin-top: 12px;
+  color: #8b2e2e;
+  font-size: 14px;
+}
+
+.import-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.import-actions button {
+  min-height: 46px;
+  padding: 0 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(31, 47, 47, 0.14);
+  background: #fff;
+  font-size: 15px;
+}
+
+.import-actions button[type="submit"] {
+  background: var(--accent);
+}
+
+.import-actions button:disabled {
+  opacity: 0.7;
+}
+
 @media (max-width: 1100px) {
   .workspace-shell {
     grid-template-columns: 1fr;
@@ -732,6 +827,10 @@ a {
   }
 
   .compose-header-actions {
+    flex-wrap: wrap;
+  }
+
+  .editor-entry-row {
     flex-wrap: wrap;
   }
 

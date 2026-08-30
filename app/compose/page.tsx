@@ -1,19 +1,49 @@
 "use client";
 
 import Link from "next/link";
-import type { ChangeEvent, DragEvent } from "react";
+import type { ChangeEvent, DragEvent, FormEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const networks = ["X", "Facebook", "Instagram", "LinkedIn", "TikTok", "YouTube", "Threads", "Bluesky"];
 
+type ImportResponse = {
+  sourceUrl: string;
+  finalUrl: string;
+  title: string;
+  description: string;
+  content: string;
+  imageUrl: string;
+};
+
+function buildImportedDraft(result: ImportResponse) {
+  return [result.title, result.description, result.content].filter(Boolean).join("\n\n").trim();
+}
+
+function formatSourceLabel(input: string) {
+  if (!input) return "";
+  try {
+    return new URL(input).hostname;
+  } catch {
+    return input;
+  }
+}
+
 export default function ComposePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const importTextRef = useRef<HTMLTextAreaElement | null>(null);
+  const importUrlRef = useRef<HTMLInputElement | null>(null);
   const dropzoneRef = useRef<HTMLDivElement | null>(null);
+  const objectUrlRef = useRef<string | null>(null);
   const [draftText, setDraftText] = useState("");
   const [copied, setCopied] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageName, setImageName] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [importMode, setImportMode] = useState<"text" | "url" | null>(null);
+  const [importValue, setImportValue] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
+  const [importError, setImportError] = useState("");
+  const [importSource, setImportSource] = useState("");
 
   useEffect(() => {
     if (!copied) return undefined;
@@ -23,9 +53,20 @@ export default function ComposePage() {
 
   useEffect(() => {
     return () => {
-      if (imagePreview) URL.revokeObjectURL(imagePreview);
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
     };
-  }, [imagePreview]);
+  }, []);
+
+  useEffect(() => {
+    if (!importMode) return;
+    window.setTimeout(() => {
+      if (importMode === "url") {
+        importUrlRef.current?.focus();
+      } else {
+        importTextRef.current?.focus();
+      }
+    }, 0);
+  }, [importMode]);
 
   const previewText = useMemo(() => {
     const trimmed = draftText.trim();
@@ -37,10 +78,18 @@ export default function ComposePage() {
 
   const setFile = (file: File | null) => {
     if (!file) return;
-    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
     const nextUrl = URL.createObjectURL(file);
+    objectUrlRef.current = nextUrl;
     setImagePreview(nextUrl);
     setImageName(file.name);
+  };
+
+  const clearImportedImage = () => {
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = null;
+    }
   };
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -59,13 +108,60 @@ export default function ComposePage() {
     setCopied(true);
   };
 
-  const handleUrlImport = () => {
-    const url = window.prompt("Paste a URL to import");
-    if (!url) return;
-    setDraftText((current) => {
-      const prefix = current.trim() ? `${current.trim()}\n\n` : "";
-      return `${prefix}[Imported from URL]\n${url}\n`;
-    });
+  const openImport = (mode: "text" | "url") => {
+    setImportMode(mode);
+    setImportError("");
+    setImportValue("");
+  };
+
+  const handleImportSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const nextValue = importValue.trim();
+    if (!nextValue) {
+      setImportError(importMode === "url" ? "Paste a URL first." : "Paste some text first.");
+      return;
+    }
+
+    setIsImporting(true);
+    setImportError("");
+
+    try {
+      if (importMode === "text") {
+        setDraftText(nextValue);
+        setImportSource("Text import");
+      } else {
+        const response = await fetch("/api/import-url", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ url: nextValue }),
+        });
+
+        const data = (await response.json()) as Partial<ImportResponse> & { error?: string };
+
+        if (!response.ok) {
+          throw new Error(data.error || "Import failed.");
+        }
+
+        const importedDraft = buildImportedDraft(data as ImportResponse);
+        setDraftText(importedDraft || data.finalUrl || data.sourceUrl || "");
+        setImportSource(data.finalUrl || data.sourceUrl || "");
+
+        if (data.imageUrl) {
+          clearImportedImage();
+          setImagePreview(data.imageUrl);
+          setImageName("Imported image");
+        }
+      }
+
+      setImportMode(null);
+      setImportValue("");
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : "Import failed.");
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   return (
@@ -103,6 +199,20 @@ export default function ComposePage() {
             ))}
           </div>
 
+          <div className="editor-entry-row" aria-label="Content import actions">
+            <div className="editor-entry-group">
+              <button type="button" className="entry-pill" onClick={() => openImport("text")}>
+                Import
+              </button>
+              <button type="button" className="entry-pill" onClick={() => openImport("url")}>
+                URL
+              </button>
+            </div>
+            <button type="button" className="entry-pill entry-pill-muted" onClick={handleCopy}>
+              {copied ? "Copied" : "Copy"}
+            </button>
+          </div>
+
           <div
             ref={dropzoneRef}
             className={`editor-panel${isDragging ? " is-dragging" : ""}`}
@@ -117,18 +227,6 @@ export default function ComposePage() {
             }}
             onDrop={handleDrop}
           >
-            <div className="editor-mode-row">
-              <button type="button" className="mode-pill active">
-                Text
-              </button>
-              <button type="button" className="mode-pill" onClick={handleUrlImport}>
-                URL
-              </button>
-              <button type="button" className="mode-pill" onClick={handleCopy}>
-                {copied ? "Copied" : "Copy"}
-              </button>
-            </div>
-
             <textarea
               className="draft-textarea"
               value={draftText}
@@ -138,7 +236,9 @@ export default function ComposePage() {
 
             <div className="editor-meta">
               <span>{draftText.length} chars</span>
-              <span>{copied ? "Copied to clipboard" : "Ready to edit"}</span>
+              <span>
+                {copied ? "Copied to clipboard" : importSource ? `Imported from ${formatSourceLabel(importSource)}` : "Ready to edit"}
+              </span>
             </div>
 
             <button
@@ -190,6 +290,48 @@ export default function ComposePage() {
           Connect a Channel to Post
         </button>
       </footer>
+
+      {importMode ? (
+        <div className="import-modal-backdrop" role="presentation" onClick={() => setImportMode(null)}>
+          <form
+            className="import-modal"
+            onSubmit={handleImportSubmit}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3>{importMode === "url" ? "Import from URL" : "Import text"}</h3>
+            <p>
+              {importMode === "url"
+                ? "Paste a public article link and we will pull the text and image into the draft."
+                : "Paste plain text and it will fill the draft directly."}
+            </p>
+            {importMode === "url" ? (
+              <input
+                ref={importUrlRef}
+                type="url"
+                value={importValue}
+                onChange={(event) => setImportValue(event.target.value)}
+                placeholder="https://example.com/article"
+              />
+            ) : (
+              <textarea
+                ref={importTextRef}
+                value={importValue}
+                onChange={(event) => setImportValue(event.target.value)}
+                placeholder="Paste your text here"
+              />
+            )}
+            {importError ? <div className="import-error">{importError}</div> : null}
+            <div className="import-actions">
+              <button type="button" onClick={() => setImportMode(null)}>
+                Cancel
+              </button>
+              <button type="submit" disabled={isImporting}>
+                {isImporting ? "Importing..." : "Import"}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </main>
   );
 }
