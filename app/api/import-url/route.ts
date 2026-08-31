@@ -112,6 +112,20 @@ function splitParagraphs(text: string) {
     .filter(Boolean);
 }
 
+function dedupeParagraphs(paragraphs: string[]) {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const paragraph of paragraphs) {
+    const key = normalizeEscapedText(paragraph).toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    result.push(paragraph);
+  }
+
+  return result;
+}
+
 function getWeChatArticle(html: string) {
   const fullText = getMeta(html, ["og:title", "twitter:title"]);
   const paragraphs = splitParagraphs(fullText);
@@ -146,19 +160,19 @@ function getXPost(html: string) {
     .map((part) => part.replace(/\s+/g, " ").trim());
 
   const metaContent = metaParts.join("\n\n");
-  const metaParagraphs = splitParagraphs(metaContent).filter((line) => !isNoiseLine(line));
+  const metaParagraphs = dedupeParagraphs(splitParagraphs(metaContent).filter((line) => !isNoiseLine(line)));
 
   const imageUrl = getImageUrl(html);
   const mainHtml = getMainHtml(html);
   const fallbackContent = limitParagraphs(
-    splitParagraphs(stripTags(mainHtml))
+    dedupeParagraphs(splitParagraphs(stripTags(mainHtml)))
       .filter((line) => !isNoiseLine(line))
       .join("\n\n"),
     8
   );
 
   const title = metaParagraphs[0] || getTitle(html);
-  const content = metaParagraphs.slice(1).join("\n\n") || fallbackContent || title;
+  const content = dedupeParagraphs(metaParagraphs.slice(1)).join("\n\n") || fallbackContent || title;
 
   return {
     title,

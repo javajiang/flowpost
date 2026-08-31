@@ -16,7 +16,20 @@ type ImportResponse = {
 };
 
 function buildImportedDraft(result: ImportResponse) {
-  return [result.title, result.description, result.content].filter(Boolean).join("\n\n").trim();
+  const segments = [result.title, result.description, result.content]
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const uniqueSegments: string[] = [];
+  const seen = new Set<string>();
+
+  for (const segment of segments) {
+    const key = segment.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    uniqueSegments.push(segment);
+  }
+
+  return uniqueSegments.join("\n\n").trim();
 }
 
 function formatSourceLabel(input: string) {
