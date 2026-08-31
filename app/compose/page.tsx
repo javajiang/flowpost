@@ -15,6 +15,13 @@ type ImportResponse = {
   imageUrl: string;
 };
 
+type DraftImage = {
+  id: string;
+  url: string;
+  name: string;
+  isObjectUrl: boolean;
+};
+
 function buildImportedDraft(result: ImportResponse) {
   const segments = [result.title, result.description, result.content]
     .map((part) => part.trim())
@@ -46,11 +53,10 @@ export default function ComposePage() {
   const importTextRef = useRef<HTMLTextAreaElement | null>(null);
   const importUrlRef = useRef<HTMLInputElement | null>(null);
   const dropzoneRef = useRef<HTMLDivElement | null>(null);
-  const objectUrlRef = useRef<string | null>(null);
+  const objectUrlsRef = useRef<Set<string>>(new Set());
   const [draftText, setDraftText] = useState("");
   const [copied, setCopied] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imageName, setImageName] = useState<string | null>(null);
+  const [images, setImages] = useState<DraftImage[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [importMode, setImportMode] = useState<"text" | "url" | null>(null);
   const [importValue, setImportValue] = useState("");
@@ -66,7 +72,8 @@ export default function ComposePage() {
 
   useEffect(() => {
     return () => {
-      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      objectUrlsRef.current.clear();
     };
   }, []);
 
@@ -89,31 +96,48 @@ export default function ComposePage() {
     return trimmed.length > 180 ? `${trimmed.slice(0, 180)}...` : trimmed;
   }, [draftText]);
 
-  const setFile = (file: File | null) => {
-    if (!file) return;
-    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-    const nextUrl = URL.createObjectURL(file);
-    objectUrlRef.current = nextUrl;
-    setImagePreview(nextUrl);
-    setImageName(file.name);
+  const previewImage = images[0] ?? null;
+
+  const appendFiles = (fileList: FileList | File[]) => {
+    const files = Array.from(fileList).filter((file) => file.type.startsWith("image/"));
+    if (files.length === 0) return;
+
+    const nextImages = files.map((file) => {
+      const url = URL.createObjectURL(file);
+      objectUrlsRef.current.add(url);
+
+      return {
+        id: `${file.name}-${file.lastModified}-${Math.random().toString(36).slice(2)}`,
+        url,
+        name: file.name,
+        isObjectUrl: true,
+      };
+    });
+
+    setImages((current) => [...current, ...nextImages]);
   };
 
-  const clearImportedImage = () => {
-    if (objectUrlRef.current) {
-      URL.revokeObjectURL(objectUrlRef.current);
-      objectUrlRef.current = null;
-    }
+  const appendImportedImage = (url: string) => {
+    setImages((current) => [
+      ...current,
+      {
+        id: `imported-${Date.now()}`,
+        url,
+        name: "Imported image",
+        isObjectUrl: false,
+      },
+    ]);
   };
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setFile(event.target.files?.[0] ?? null);
+    if (event.target.files) appendFiles(event.target.files);
     event.target.value = "";
   };
 
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     setIsDragging(false);
-    setFile(event.dataTransfer.files?.[0] ?? null);
+    appendFiles(event.dataTransfer.files);
   };
 
   const handleCopy = async () => {
@@ -162,9 +186,7 @@ export default function ComposePage() {
         setImportSource(data.finalUrl || data.sourceUrl || "");
 
         if (data.imageUrl) {
-          clearImportedImage();
-          setImagePreview(data.imageUrl);
-          setImageName("Imported image");
+          appendImportedImage(data.imageUrl);
         }
       }
 
@@ -252,28 +274,22 @@ export default function ComposePage() {
               <span>{copied ? "Copied to clipboard" : importSource ? `Imported from ${formatSourceLabel(importSource)}` : ""}</span>
             </div>
 
-            <button
-              type="button"
-              className="upload-card"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {imagePreview ? (
-                <>
-                  <img src={imagePreview} alt={imageName ?? "Uploaded image"} />
-                  <strong>{imageName}</strong>
-                  <span>Replace image</span>
-                  <span className="upload-card-action" aria-hidden="true">
-                    <span className="upload-card-action-icon">＋</span>
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="upload-icon">▣</span>
-                  <strong>Drag & drop or select a file</strong>
-                  <span>Image upload area</span>
-                </>
-              )}
-            </button>
+            <div className="media-row" aria-label="Uploaded images">
+              {images.map((image) => (
+                <div className="image-thumb" key={image.id}>
+                  <img src={image.url} alt={image.name} />
+                </div>
+              ))}
+              <button
+                type="button"
+                className="upload-card"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <span className="upload-icon">▣</span>
+                <strong>Drag & drop or select a file</strong>
+                <span>Image upload area</span>
+              </button>
+            </div>
 
             <div className="editor-tools">
               <button type="button">emoji</button>
@@ -285,6 +301,7 @@ export default function ComposePage() {
               className="sr-only-file"
               type="file"
               accept="image/*"
+              multiple
               onChange={handleFileChange}
             />
           </div>
@@ -293,7 +310,7 @@ export default function ComposePage() {
         <aside className="compose-preview">
           <h2>Post Previews</h2>
           <div className="preview-shell">
-            {imagePreview ? <img src={imagePreview} alt={imageName ?? "Preview"} /> : <div className="preview-empty" />}
+            {previewImage ? <img src={previewImage.url} alt={previewImage.name} /> : <div className="preview-empty" />}
             <p>{previewText}</p>
           </div>
         </aside>
