@@ -698,6 +698,123 @@ a {
   background: rgba(255, 255, 255, 0.8);
 }
 
+.ai-title {
+  color: #8057ff;
+}
+
+.ai-composer {
+  margin-top: 26px;
+  min-height: 360px;
+  border: 1px solid rgba(31, 47, 47, 0.16);
+  border-radius: 18px;
+  background: #fff;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-platform-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.ai-platform-pill {
+  min-height: 34px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(31, 47, 47, 0.12);
+  background: #fff;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.ai-platform-pill.active {
+  background: rgba(183, 235, 150, 0.42);
+  color: var(--text);
+  border-color: rgba(31, 47, 47, 0.18);
+}
+
+.ai-prompt-input {
+  flex: 1;
+  width: 100%;
+  min-height: 190px;
+  border: 0;
+  outline: 0;
+  resize: none;
+  font: inherit;
+  font-size: 22px;
+  line-height: 1.42;
+  color: var(--text);
+  background: transparent;
+}
+
+.ai-prompt-input::placeholder {
+  color: rgba(31, 47, 47, 0.52);
+}
+
+.ai-composer-actions,
+.ai-result-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.ai-composer-actions button,
+.ai-result-actions button {
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(31, 47, 47, 0.12);
+  background: #fff;
+  color: var(--text);
+  font-size: 15px;
+}
+
+.ai-composer-actions button:disabled,
+.ai-result-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ai-generate-button {
+  background: var(--accent) !important;
+}
+
+.ai-result-section {
+  margin-top: 28px;
+}
+
+.ai-result-section h3 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+
+.ai-result-card {
+  min-height: 220px;
+  border: 1px solid rgba(31, 47, 47, 0.1);
+  border-radius: 18px;
+  background: #fff;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-result-card p {
+  flex: 1;
+  margin: 0;
+  white-space: pre-wrap;
+  color: var(--text);
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+.ai-result-placeholder {
+  color: var(--muted);
+}
+
 .preview-shell {
   margin-top: 28px;
 }

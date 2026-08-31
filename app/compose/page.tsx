@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import type { ChangeEvent, DragEvent, FormEvent } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const networks = ["X", "Facebook", "Instagram", "LinkedIn", "TikTok", "YouTube", "Threads", "Bluesky"];
+const aiPlatforms = ["X", "Instagram", "Facebook", "TikTok", "YouTube", "Threads", "Bluesky"];
 
 type ImportResponse = {
   sourceUrl: string;
@@ -65,12 +66,22 @@ export default function ComposePage() {
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState("");
   const [importSource, setImportSource] = useState("");
+  const [selectedAiPlatform, setSelectedAiPlatform] = useState(aiPlatforms[0]);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiResult, setAiResult] = useState("");
+  const [aiCopied, setAiCopied] = useState(false);
 
   useEffect(() => {
     if (!copied) return undefined;
     const timer = window.setTimeout(() => setCopied(false), 1500);
     return () => window.clearTimeout(timer);
   }, [copied]);
+
+  useEffect(() => {
+    if (!aiCopied) return undefined;
+    const timer = window.setTimeout(() => setAiCopied(false), 1500);
+    return () => window.clearTimeout(timer);
+  }, [aiCopied]);
 
   useEffect(() => {
     return () => {
@@ -89,16 +100,6 @@ export default function ComposePage() {
       }
     }, 0);
   }, [importMode]);
-
-  const previewText = useMemo(() => {
-    const trimmed = draftText.trim();
-    if (!trimmed) {
-      return "See your post's preview here";
-    }
-    return trimmed.length > 180 ? `${trimmed.slice(0, 180)}...` : trimmed;
-  }, [draftText]);
-
-  const previewImage = images[0] ?? null;
 
   const appendFiles = (fileList: FileList | File[]) => {
     const files = Array.from(fileList).filter((file) => file.type.startsWith("image/"));
@@ -193,6 +194,28 @@ export default function ComposePage() {
   const handleCopy = async () => {
     await navigator.clipboard.writeText(draftText);
     setCopied(true);
+  };
+
+  const handleUseCurrentDraft = () => {
+    setAiPrompt(draftText.trim());
+  };
+
+  const handleGenerateAiCopy = () => {
+    const source = aiPrompt.trim();
+    if (!source) return;
+
+    setAiResult(`[${selectedAiPlatform}]\n${source}`);
+  };
+
+  const handleCopyAiResult = async () => {
+    if (!aiResult.trim()) return;
+    await navigator.clipboard.writeText(aiResult);
+    setAiCopied(true);
+  };
+
+  const handleUseAiResultAsDraft = () => {
+    if (!aiResult.trim()) return;
+    setDraftText(aiResult);
   };
 
   const openImport = (mode: "text" | "url") => {
@@ -381,10 +404,54 @@ export default function ComposePage() {
         </section>
 
         <aside className="compose-preview">
-          <h2>Post Previews</h2>
-          <div className="preview-shell">
-            {previewImage ? <img src={previewImage.url} alt={previewImage.name} /> : <div className="preview-empty" />}
-            <p>{previewText}</p>
+          <h2 className="ai-title">✦ AI Assistant</h2>
+
+          <div className="ai-composer">
+            <div className="ai-platform-row" aria-label="AI target platform">
+              {aiPlatforms.map((platform) => (
+                <button
+                  key={platform}
+                  type="button"
+                  className={`ai-platform-pill${selectedAiPlatform === platform ? " active" : ""}`}
+                  onClick={() => setSelectedAiPlatform(platform)}
+                >
+                  {platform}
+                </button>
+              ))}
+            </div>
+
+            <textarea
+              className="ai-prompt-input"
+              value={aiPrompt}
+              onChange={(event) => setAiPrompt(event.target.value)}
+              placeholder="Create a post for the selected platform"
+            />
+
+            <div className="ai-composer-actions">
+              <button type="button" onClick={handleUseCurrentDraft} disabled={!draftText.trim()}>
+                Use current draft
+              </button>
+              <button type="button" className="ai-generate-button" onClick={handleGenerateAiCopy} disabled={!aiPrompt.trim()}>
+                Generate
+              </button>
+            </div>
+          </div>
+
+          <div className="ai-result-section">
+            <h3>Result</h3>
+            <div className="ai-result-card">
+              <p className={aiResult ? undefined : "ai-result-placeholder"}>
+                {aiResult || "Generated platform copy will appear here."}
+              </p>
+              <div className="ai-result-actions">
+                <button type="button" onClick={handleCopyAiResult} disabled={!aiResult.trim()}>
+                  {aiCopied ? "Copied" : "Copy"}
+                </button>
+                <button type="button" onClick={handleUseAiResultAsDraft} disabled={!aiResult.trim()}>
+                  Use as draft
+                </button>
+              </div>
+            </div>
           </div>
         </aside>
       </section>
