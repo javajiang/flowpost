@@ -80,6 +80,91 @@ function isXUrl(url: URL) {
   return ["x.com", "www.x.com", "twitter.com", "www.twitter.com"].includes(url.hostname);
 }
 
+function isRedditUrl(url: URL) {
+  return ["reddit.com", "www.reddit.com", "old.reddit.com", "m.reddit.com"].includes(url.hostname);
+}
+
+function getRedditPostId(url: URL) {
+  const match = url.pathname.match(/\/comments\/([^/]+)/i);
+  return match?.[1] ?? "";
+}
+
+function getRedditSubreddit(url: URL) {
+  const match = url.pathname.match(/\/r\/([^/]+)/i);
+  return match?.[1] ?? "";
+}
+
+function isImageLikeUrl(input: string) {
+  return /\.(png|jpe?g|gif|webp|avif)(\?|#|$)/i.test(input);
+}
+
+function decodeRedditUrl(input: string) {
+  return decodeEntities(input.replace(/&amp;/g, "&"));
+}
+
+async function fetchRedditJson(urls: string[], signal: AbortSignal) {
+  for (const nextUrl of urls) {
+    try {
+      const response = await fetch(nextUrl, {
+        redirect: "follow",
+        signal,
+        headers: {
+          "user-agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128 Safari/537.36",
+          accept: "application/json,text/plain,*/*",
+        },
+      });
+
+      if (!response.ok) continue;
+
+      return await response.json();
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+async function getRedditPost(url: URL, signal: AbortSignal) {
+  const postId = getRedditPostId(url);
+  if (!postId) return null;
+
+  const subreddit = getRedditSubreddit(url);
+  const path = subreddit ? `/r/${subreddit}/comments/${postId}` : `/comments/${postId}`;
+  const candidates = [
+    `https://www.reddit.com${path}.json?raw_json=1&limit=1&sort=top`,
+    `https://old.reddit.com${path}.json?raw_json=1&limit=1&sort=top`,
+    `https://api.reddit.com${path}?raw_json=1&limit=1&sort=top`,
+  ];
+
+  const data = await fetchRedditJson(candidates, signal);
+  if (!data) return null;
+
+  const post = Array.isArray(data)
+    ? data?.[0]?.data?.children?.[0]?.data
+    : data?.data?.children?.[0]?.data;
+
+  if (!post) return null;
+
+  const title = normalizeEscapedText(String(post.title || ""));
+  const body = normalizeEscapedText(String(post.selftext || ""));
+  const description = normalizeEscapedText(String(post.subreddit_name_prefixed || ""));
+  const previewImage = post.preview?.images?.[0]?.source?.url || "";
+  const fallbackImage =
+    (typeof post.url_overridden_by_dest === "string" && isImageLikeUrl(post.url_overridden_by_dest) && post.url_overridden_by_dest) ||
+    (typeof post.thumbnail === "string" && post.thumbnail.startsWith("http") && post.thumbnail) ||
+    "";
+  const imageUrl = decodeRedditUrl(previewImage || fallbackImage);
+
+  return {
+    title,
+    description,
+    content: body || title,
+    imageUrl,
+  };
+}
+
 function getMainHtml(html: string) {
   const candidates = [
     ...html.matchAll(/<article\b[^>]*>([\s\S]*?)<\/article>/gi),
@@ -210,6 +295,32 @@ export async function POST(req: Request) {
   const timer = setTimeout(() => controller.abort(), 12000);
 
   try {
+    if (isRedditUrl(url)) {
+      const redditController = new AbortController();
+      const redditTimer = setTimeout(() => redditController.abort(), 6000);
+      const redditPost = await getRedditPost(url, redditController.signal);
+      clearTimeout(redditTimer);
+
+      if (redditPost) {
+        return NextResponse.json({
+          sourceUrl: url.toString(),
+          finalUrl: url.toString(),
+          title: redditPost.title,
+          description: redditPost.description,
+          content: redditPost.content,
+          imageUrl: redditPost.imageUrl,
+        });
+      }
+
+      return NextResponse.json(
+        {
+          error:
+            "Reddit blocks server-side import from this environment. Use a different source or a browser-side importer.",
+        },
+        { status: 400 }
+      );
+    }
+
     const response = await fetch(url.toString(), {
       redirect: "follow",
       signal: controller.signal,
