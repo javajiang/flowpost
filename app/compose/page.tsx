@@ -50,10 +50,12 @@ function formatSourceLabel(input: string) {
 
 export default function ComposePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const replaceFileInputRef = useRef<HTMLInputElement | null>(null);
   const importTextRef = useRef<HTMLTextAreaElement | null>(null);
   const importUrlRef = useRef<HTMLInputElement | null>(null);
   const dropzoneRef = useRef<HTMLDivElement | null>(null);
   const objectUrlsRef = useRef<Set<string>>(new Set());
+  const replaceImageIdRef = useRef<string | null>(null);
   const [draftText, setDraftText] = useState("");
   const [copied, setCopied] = useState(false);
   const [images, setImages] = useState<DraftImage[]>([]);
@@ -117,6 +119,31 @@ export default function ComposePage() {
     setImages((current) => [...current, ...nextImages]);
   };
 
+  const replaceImage = (file: File | null) => {
+    const imageId = replaceImageIdRef.current;
+    if (!file || !imageId || !file.type.startsWith("image/")) return;
+
+    const url = URL.createObjectURL(file);
+    objectUrlsRef.current.add(url);
+
+    setImages((current) =>
+      current.map((image) => {
+        if (image.id !== imageId) return image;
+        if (image.isObjectUrl) {
+          URL.revokeObjectURL(image.url);
+          objectUrlsRef.current.delete(image.url);
+        }
+
+        return {
+          id: `${file.name}-${file.lastModified}-${Math.random().toString(36).slice(2)}`,
+          url,
+          name: file.name,
+          isObjectUrl: true,
+        };
+      })
+    );
+  };
+
   const appendImportedImage = (url: string) => {
     setImages((current) => [
       ...current,
@@ -132,6 +159,29 @@ export default function ComposePage() {
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) appendFiles(event.target.files);
     event.target.value = "";
+  };
+
+  const handleReplaceFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    replaceImage(event.target.files?.[0] ?? null);
+    replaceImageIdRef.current = null;
+    event.target.value = "";
+  };
+
+  const handleRemoveImage = (imageId: string) => {
+    setImages((current) => {
+      const image = current.find((item) => item.id === imageId);
+      if (image?.isObjectUrl) {
+        URL.revokeObjectURL(image.url);
+        objectUrlsRef.current.delete(image.url);
+      }
+
+      return current.filter((item) => item.id !== imageId);
+    });
+  };
+
+  const handleReplaceImage = (imageId: string) => {
+    replaceImageIdRef.current = imageId;
+    replaceFileInputRef.current?.click();
   };
 
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
@@ -278,6 +328,22 @@ export default function ComposePage() {
               {images.map((image) => (
                 <div className="image-thumb" key={image.id}>
                   <img src={image.url} alt={image.name} />
+                  <button
+                    type="button"
+                    className="image-thumb-action image-thumb-remove"
+                    aria-label={`Remove ${image.name}`}
+                    onClick={() => handleRemoveImage(image.id)}
+                  >
+                    ×
+                  </button>
+                  <button
+                    type="button"
+                    className="image-thumb-action image-thumb-replace"
+                    aria-label={`Replace ${image.name}`}
+                    onClick={() => handleReplaceImage(image.id)}
+                  >
+                    ✎
+                  </button>
                 </div>
               ))}
               <button
@@ -303,6 +369,13 @@ export default function ComposePage() {
               accept="image/*"
               multiple
               onChange={handleFileChange}
+            />
+            <input
+              ref={replaceFileInputRef}
+              className="sr-only-file"
+              type="file"
+              accept="image/*"
+              onChange={handleReplaceFileChange}
             />
           </div>
         </section>

@@ -624,6 +624,7 @@ a {
 }
 
 .image-thumb {
+  position: relative;
   overflow: hidden;
   border: 1px solid rgba(31, 47, 47, 0.12);
   background: rgba(31, 47, 47, 0.04);
@@ -634,6 +635,30 @@ a {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.image-thumb-action {
+  position: absolute;
+  right: 10px;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(31, 47, 47, 0.86);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.image-thumb-remove {
+  top: 10px;
+}
+
+.image-thumb-replace {
+  bottom: 10px;
 }
 
 .upload-card {
