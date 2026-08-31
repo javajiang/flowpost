@@ -76,6 +76,10 @@ function getImageUrl(html: string) {
   return getMeta(html, ["og:image", "twitter:image"]);
 }
 
+function isXUrl(url: URL) {
+  return ["x.com", "www.x.com", "twitter.com", "www.twitter.com"].includes(url.hostname);
+}
+
 function getMainHtml(html: string) {
   const candidates = [
     ...html.matchAll(/<article\b[^>]*>([\s\S]*?)<\/article>/gi),
@@ -117,6 +121,50 @@ function getWeChatArticle(html: string) {
   return {
     title: paragraphs[0],
     content: paragraphs.slice(1).join("\n\n"),
+  };
+}
+
+function isNoiseLine(line: string) {
+  const normalized = line.trim();
+  if (!normalized) return true;
+  if (/^\d+$/.test(normalized)) return true;
+  if (/^\d+(\.\d+)?[KMB]?$/i.test(normalized)) return true;
+  if (/^\d+(\.\d+)?[KMB]?\s+Views?$/i.test(normalized)) return true;
+  if (/^\d{1,2}:\d{2}\s?(AM|PM)?\s·\s/i.test(normalized)) return true;
+  if (/^(Reply|Repost|Like|Views?)$/i.test(normalized)) return true;
+  return false;
+}
+
+function getXPost(html: string) {
+  const metaParts = [
+    getMeta(html, ["og:title"]),
+    getMeta(html, ["og:description"]),
+    getMeta(html, ["twitter:title"]),
+    getMeta(html, ["twitter:description"]),
+  ]
+    .filter(Boolean)
+    .map((part) => part.replace(/\s+/g, " ").trim());
+
+  const metaContent = metaParts.join("\n\n");
+  const metaParagraphs = splitParagraphs(metaContent).filter((line) => !isNoiseLine(line));
+
+  const imageUrl = getImageUrl(html);
+  const mainHtml = getMainHtml(html);
+  const fallbackContent = limitParagraphs(
+    splitParagraphs(stripTags(mainHtml))
+      .filter((line) => !isNoiseLine(line))
+      .join("\n\n"),
+    8
+  );
+
+  const title = metaParagraphs[0] || getTitle(html);
+  const content = metaParagraphs.slice(1).join("\n\n") || fallbackContent || title;
+
+  return {
+    title,
+    content,
+    imageUrl,
+    description: metaParagraphs.length > 1 ? metaParagraphs.slice(1).join(" ") : getMeta(html, ["og:description", "twitter:description"]),
   };
 }
 
@@ -168,11 +216,14 @@ export async function POST(req: Request) {
     const html = await response.text();
     const finalUrl = response.url || url.toString();
     const weChatArticle = url.hostname === "mp.weixin.qq.com" ? getWeChatArticle(html) : null;
-    const title = weChatArticle?.title || getTitle(html);
-    const description = weChatArticle ? "" : getMeta(html, ["description", "og:description", "twitter:description"]);
-    const imageUrl = getImageUrl(html);
+    const xPost = !weChatArticle && isXUrl(url) ? getXPost(html) : null;
+    const title = weChatArticle?.title || xPost?.title || getTitle(html);
+    const description = weChatArticle
+      ? ""
+      : xPost?.description || getMeta(html, ["description", "og:description", "twitter:description"]);
+    const imageUrl = xPost?.imageUrl || getImageUrl(html);
     const mainHtml = getMainHtml(html);
-    const content = weChatArticle?.content || limitParagraphs(stripTags(mainHtml), 12);
+    const content = weChatArticle?.content || xPost?.content || limitParagraphs(stripTags(mainHtml), 12);
 
     const result: ImportResult = {
       sourceUrl: url.toString(),
