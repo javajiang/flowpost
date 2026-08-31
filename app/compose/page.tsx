@@ -248,10 +248,8 @@ export default function ComposePage() {
             />
 
             <div className="editor-meta">
-              <span>{draftText.length} chars</span>
-              <span>
-                {copied ? "Copied to clipboard" : importSource ? `Imported from ${formatSourceLabel(importSource)}` : "Ready to edit"}
-              </span>
+              <span>{draftText.length > 0 ? `${draftText.length} chars` : ""}</span>
+              <span>{copied ? "Copied to clipboard" : importSource ? `Imported from ${formatSourceLabel(importSource)}` : ""}</span>
             </div>
 
             <button
@@ -264,6 +262,9 @@ export default function ComposePage() {
                   <img src={imagePreview} alt={imageName ?? "Uploaded image"} />
                   <strong>{imageName}</strong>
                   <span>Replace image</span>
+                  <span className="upload-card-action" aria-hidden="true">
+                    <span className="upload-card-action-icon">＋</span>
+                  </span>
                 </>
               ) : (
                 <>

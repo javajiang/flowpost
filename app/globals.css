@@ -596,6 +596,7 @@ a {
   margin-top: 10px;
   font-size: 14px;
   color: var(--muted);
+  min-height: 20px;
 }
 
 .editor-meta span:last-child {
@@ -625,6 +626,24 @@ a {
   height: 100px;
   object-fit: cover;
   border-radius: 12px;
+}
+
+.upload-card-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(31, 47, 47, 0.14);
+  background: rgba(255, 255, 255, 0.9);
+  margin-top: 2px;
+}
+
+.upload-card-action-icon {
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text);
 }
 
 .upload-icon {
