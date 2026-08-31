@@ -17,6 +17,7 @@ function decodeEntities(input: string) {
     quot: '"',
     apos: "'",
     nbsp: " ",
+    hellip: "...",
   };
 
   return input
@@ -25,8 +26,21 @@ function decodeEntities(input: string) {
     .replace(/&([a-zA-Z]+);/g, (_, name: string) => named[name] ?? `&${name};`);
 }
 
+function normalizeEscapedText(input: string) {
+  return decodeEntities(input)
+    .replace(/\\x0a/gi, "\n")
+    .replace(/\\x0d/gi, "\n")
+    .replace(/\\r\\n|\\n|\\r/g, "\n")
+    .replace(/\r\n?/g, "\n")
+    .replace(/\u00a0/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
 function stripTags(html: string) {
-  return decodeEntities(
+  return normalizeEscapedText(
     html
       .replace(/<script[\s\S]*?<\/script>/gi, " ")
       .replace(/<style[\s\S]*?<\/style>/gi, " ")
@@ -36,12 +50,7 @@ function stripTags(html: string) {
       .replace(/<(br|hr)\s*\/?>/gi, "\n")
       .replace(/<\/(p|div|section|article|main|li|h[1-6]|blockquote|tr)>/gi, "\n\n")
       .replace(/<[^>]+>/g, " ")
-  )
-    .replace(/\u00a0/g, " ")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .replace(/[ \t]{2,}/g, " ")
-    .trim();
+  );
 }
 
 function getMeta(html: string, names: string[]) {
@@ -51,7 +60,7 @@ function getMeta(html: string, names: string[]) {
       "i"
     );
     const match = html.match(pattern);
-    if (match?.[1]) return decodeEntities(match[1].trim());
+    if (match?.[1]) return normalizeEscapedText(match[1].trim());
   }
   return "";
 }
@@ -60,7 +69,7 @@ function getTitle(html: string) {
   const ogTitle = getMeta(html, ["og:title"]);
   if (ogTitle) return ogTitle;
   const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-  return titleMatch?.[1] ? decodeEntities(titleMatch[1].trim()) : "";
+  return titleMatch?.[1] ? normalizeEscapedText(titleMatch[1].trim()) : "";
 }
 
 function getImageUrl(html: string) {
@@ -90,6 +99,25 @@ function limitParagraphs(text: string, maxParagraphs = 10) {
     .map((line) => line.trim())
     .filter(Boolean);
   return paragraphs.slice(0, maxParagraphs).join("\n\n");
+}
+
+function splitParagraphs(text: string) {
+  return normalizeEscapedText(text)
+    .split(/\n\s*\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function getWeChatArticle(html: string) {
+  const fullText = getMeta(html, ["og:title", "twitter:title"]);
+  const paragraphs = splitParagraphs(fullText);
+
+  if (paragraphs.length < 2) return null;
+
+  return {
+    title: paragraphs[0],
+    content: paragraphs.slice(1).join("\n\n"),
+  };
 }
 
 export async function POST(req: Request) {
@@ -139,11 +167,12 @@ export async function POST(req: Request) {
 
     const html = await response.text();
     const finalUrl = response.url || url.toString();
-    const title = getTitle(html);
-    const description = getMeta(html, ["description", "og:description", "twitter:description"]);
+    const weChatArticle = url.hostname === "mp.weixin.qq.com" ? getWeChatArticle(html) : null;
+    const title = weChatArticle?.title || getTitle(html);
+    const description = weChatArticle ? "" : getMeta(html, ["description", "og:description", "twitter:description"]);
     const imageUrl = getImageUrl(html);
     const mainHtml = getMainHtml(html);
-    const content = limitParagraphs(stripTags(mainHtml), 12);
+    const content = weChatArticle?.content || limitParagraphs(stripTags(mainHtml), 12);
 
     const result: ImportResult = {
       sourceUrl: url.toString(),
