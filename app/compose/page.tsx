@@ -28,6 +28,9 @@ type DraftImage = {
   url: string;
   name: string;
   isObjectUrl: boolean;
+  assetId?: string;
+  uploadState?: "uploading" | "ready" | "failed";
+  error?: string;
 };
 
 function buildImportedDraft(result: ImportResponse) {
@@ -109,6 +112,56 @@ export default function ComposePage() {
     }, 0);
   }, [importMode]);
 
+  const updateImage = (imageId: string, updater: (image: DraftImage) => DraftImage) => {
+    setImages((current) => current.map((image) => (image.id === imageId ? updater(image) : image)));
+  };
+
+  const uploadImageFile = async (imageId: string, file: File) => {
+    const formData = new FormData();
+    formData.set("file", file);
+
+    try {
+      const response = await fetch("/api/assets/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = (await response.json()) as { id?: string; url?: string; error?: string };
+      if (!response.ok) {
+        throw new Error(data.error || "Upload failed.");
+      }
+
+      if (!data.id || !data.url) {
+        throw new Error("Upload did not return an asset.");
+      }
+
+      const assetId = data.id;
+      const assetUrl = data.url;
+
+      updateImage(imageId, (image) => {
+        if (image.isObjectUrl) {
+          URL.revokeObjectURL(image.url);
+          objectUrlsRef.current.delete(image.url);
+        }
+
+        return {
+          ...image,
+          url: assetUrl,
+          assetId,
+          isObjectUrl: false,
+          uploadState: "ready",
+          error: undefined,
+        };
+      });
+    } catch (error) {
+      updateImage(imageId, (image) => ({
+        ...image,
+        uploadState: "failed",
+        error: error instanceof Error ? error.message : "Upload failed.",
+      }));
+    }
+  };
+
   const appendFiles = (fileList: FileList | File[]) => {
     const files = Array.from(fileList).filter((file) => file.type.startsWith("image/"));
     if (files.length === 0) return;
@@ -122,35 +175,45 @@ export default function ComposePage() {
         url,
         name: file.name,
         isObjectUrl: true,
+        uploadState: "uploading" as const,
       };
     });
 
     setImages((current) => [...current, ...nextImages]);
+
+    nextImages.forEach((entry, index) => {
+      void uploadImageFile(entry.id, files[index]);
+    });
   };
 
   const replaceImage = (file: File | null) => {
     const imageId = replaceImageIdRef.current;
     if (!file || !imageId || !file.type.startsWith("image/")) return;
 
-    const url = URL.createObjectURL(file);
-    objectUrlsRef.current.add(url);
+    const nextImageId = `${file.name}-${file.lastModified}-${Math.random().toString(36).slice(2)}`;
+    const nextUrl = URL.createObjectURL(file);
+    objectUrlsRef.current.add(nextUrl);
 
     setImages((current) =>
       current.map((image) => {
         if (image.id !== imageId) return image;
+
         if (image.isObjectUrl) {
           URL.revokeObjectURL(image.url);
           objectUrlsRef.current.delete(image.url);
         }
 
         return {
-          id: `${file.name}-${file.lastModified}-${Math.random().toString(36).slice(2)}`,
-          url,
+          id: nextImageId,
+          url: nextUrl,
           name: file.name,
           isObjectUrl: true,
+          uploadState: "uploading",
         };
       })
     );
+
+    void uploadImageFile(nextImageId, file);
   };
 
   const appendImportedImage = (url: string) => {
@@ -359,6 +422,8 @@ export default function ComposePage() {
               {images.map((image) => (
                 <div className="image-thumb" key={image.id}>
                   <img src={image.url} alt={image.name} />
+                  {image.uploadState === "uploading" ? <span className="image-thumb-state">Uploading</span> : null}
+                  {image.uploadState === "failed" ? <span className="image-thumb-error">{image.error || "Upload failed"}</span> : null}
                   <button
                     type="button"
                     className="image-thumb-action image-thumb-remove"
