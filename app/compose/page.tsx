@@ -80,6 +80,11 @@ export default function ComposePage() {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiResult, setAiResult] = useState("");
   const [aiCopied, setAiCopied] = useState(false);
+  const [scheduleAt, setScheduleAt] = useState("");
+  const [publishMessage, setPublishMessage] = useState("");
+  const [publishError, setPublishError] = useState("");
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [isScheduling, setIsScheduling] = useState(false);
   const selectedAiRule = getSocialPlatformRule(selectedAiPlatform);
 
   useEffect(() => {
@@ -287,6 +292,69 @@ export default function ComposePage() {
   const handleUseAiResultAsDraft = () => {
     if (!aiResult.trim()) return;
     setDraftText(aiResult);
+  };
+
+  const getPublishableAssetIds = () =>
+    images.filter((image) => image.uploadState === "ready" && image.assetId).map((image) => image.assetId as string);
+
+  const handlePublishRequest = async (scheduleTime?: string) => {
+    const assetIds = getPublishableAssetIds();
+    const content = draftText.trim();
+
+    if (!content) {
+      setPublishError("Write or import content first.");
+      return;
+    }
+
+    if (assetIds.length === 0) {
+      setPublishError("Upload at least one image before publishing.");
+      return;
+    }
+
+    if (images.some((image) => image.uploadState === "uploading")) {
+      setPublishError("Wait for image uploads to finish.");
+      return;
+    }
+
+    setPublishError("");
+    setPublishMessage("");
+
+    try {
+      if (scheduleTime) {
+        setIsScheduling(true);
+      } else {
+        setIsPublishing(true);
+      }
+
+      const response = await fetch("/api/publish", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          platform: "instagram",
+          content,
+          assetIds,
+          scheduleAt: scheduleTime || null,
+        }),
+      });
+
+      const data = (await response.json()) as { error?: string; mediaId?: string; jobId?: string; scheduleAt?: string };
+      if (!response.ok) {
+        throw new Error(data.error || "Publish failed.");
+      }
+
+      if (data.jobId) {
+        setPublishMessage(`Scheduled for ${data.scheduleAt || scheduleTime}`);
+      } else {
+        setPublishMessage(`Published to Instagram${data.mediaId ? ` (${data.mediaId})` : ""}.`);
+      }
+    } catch (error) {
+      setPublishError(error instanceof Error ? error.message : "Publish failed.");
+    } finally {
+      setIsPublishing(false);
+      setIsScheduling(false);
+    }
   };
 
   const openImport = (mode: "text" | "url") => {
@@ -536,9 +604,35 @@ export default function ComposePage() {
       </section>
 
       <footer className="compose-footer">
-        <button type="button" className="publish-button">
-          Connect a Channel to Post
-        </button>
+        <div className="publish-panel">
+          <div className="publish-status">
+            <span>{publishError || publishMessage || "Instagram only for now"}</span>
+          </div>
+          <div className="publish-controls">
+            <input
+              className="publish-schedule-input"
+              type="datetime-local"
+              value={scheduleAt}
+              onChange={(event) => setScheduleAt(event.target.value)}
+            />
+            <button
+              type="button"
+              className="publish-button publish-button-secondary"
+              onClick={() => void handlePublishRequest(scheduleAt ? new Date(scheduleAt).toISOString() : undefined)}
+              disabled={isPublishing || isScheduling || !scheduleAt}
+            >
+              {isScheduling ? "Scheduling..." : "Schedule"}
+            </button>
+            <button
+              type="button"
+              className="publish-button"
+              onClick={() => void handlePublishRequest()}
+              disabled={isPublishing || isScheduling}
+            >
+              {isPublishing ? "Publishing..." : "Publish now"}
+            </button>
+          </div>
+        </div>
       </footer>
 
       {importMode ? (
