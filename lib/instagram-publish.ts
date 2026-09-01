@@ -31,6 +31,14 @@ async function readGraphError(response: Response) {
 export async function publishInstagramImage(input: InstagramPublishInput): Promise<InstagramPublishResult> {
   const version = input.graphApiVersion || "v22.0";
   const baseUrl = getGraphApiBaseUrl(version);
+  if (!input.accessToken.trim()) {
+    throw new Error("Instagram access token is required.");
+  }
+
+  if (!input.instagramUserId.trim()) {
+    throw new Error("Instagram user id is required.");
+  }
+
   const formData = new URLSearchParams({
     image_url: input.imageUrl,
     access_token: input.accessToken,
@@ -86,4 +94,3 @@ export async function publishInstagramImage(input: InstagramPublishInput): Promi
     mediaId,
   };
 }
-

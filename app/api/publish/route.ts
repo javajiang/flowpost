@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { publishInstagramImage } from "@/lib/instagram-publish";
+import { createScheduledPost } from "@/lib/scheduled-posts";
 
 type PublishRequestBody = {
   platform?: string;
@@ -34,17 +35,38 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `Unsupported platform: ${platform}` }, { status: 400 });
   }
 
-  if (body.scheduleAt) {
-    return NextResponse.json(
-      {
-        error: "Scheduled publishing is not wired yet. This endpoint currently handles immediate Instagram publishing only.",
-      },
-      { status: 501 }
-    );
-  }
-
   const caption = body.content?.trim() || "";
   const imageUrl = getFirstString(body.imageUrl);
+
+  if (body.scheduleAt) {
+    const scheduledTime = Date.parse(body.scheduleAt);
+    if (Number.isNaN(scheduledTime)) {
+      return NextResponse.json({ error: "scheduleAt must be a valid ISO timestamp" }, { status: 400 });
+    }
+
+    if (scheduledTime <= Date.now()) {
+      return NextResponse.json({ error: "scheduleAt must be in the future" }, { status: 400 });
+    }
+
+    if (!imageUrl) {
+      return NextResponse.json({ error: "imageUrl is required for scheduled Instagram publishing" }, { status: 400 });
+    }
+
+    const job = await createScheduledPost({
+      platform,
+      content: body.content?.trim() || "",
+      imageUrl,
+      scheduleAt: new Date(scheduledTime).toISOString(),
+    });
+
+    return NextResponse.json({
+      platform: "instagram",
+      status: job.status,
+      scheduleAt: job.scheduleAt,
+      jobId: job.id,
+    });
+  }
+
   if (!imageUrl) {
     return NextResponse.json({ error: "imageUrl is required for Instagram publishing" }, { status: 400 });
   }
@@ -80,4 +102,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-

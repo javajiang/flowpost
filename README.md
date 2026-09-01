@@ -66,3 +66,5 @@
 - 设计内容改写规则
 - 设计发布流程
 - 设计 MVP 页面
+- 定时发布先做 `schedule -> run-due -> publish` 的最小链路
+- 当前定时层用本地文件存储，Vercel 侧通过 cron 触发 `run-due`
