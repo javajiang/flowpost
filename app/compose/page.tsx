@@ -4,8 +4,15 @@ import Link from "next/link";
 import type { ChangeEvent, DragEvent, FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 
+import { buildPlatformCopyPreview } from "@/lib/social-copy";
+import {
+  DEFAULT_PLATFORM_ID,
+  SOCIAL_PLATFORM_RULES,
+  getSocialPlatformRule,
+  type SocialPlatformId,
+} from "@/lib/social-platforms";
+
 const networks = ["X", "Facebook", "Instagram", "LinkedIn", "TikTok", "YouTube", "Threads", "Bluesky"];
-const aiPlatforms = ["X", "Instagram", "Facebook", "TikTok", "YouTube", "Threads", "Bluesky"];
 
 type ImportResponse = {
   sourceUrl: string;
@@ -66,10 +73,11 @@ export default function ComposePage() {
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState("");
   const [importSource, setImportSource] = useState("");
-  const [selectedAiPlatform, setSelectedAiPlatform] = useState(aiPlatforms[0]);
+  const [selectedAiPlatform, setSelectedAiPlatform] = useState<SocialPlatformId>(DEFAULT_PLATFORM_ID);
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiResult, setAiResult] = useState("");
   const [aiCopied, setAiCopied] = useState(false);
+  const selectedAiRule = getSocialPlatformRule(selectedAiPlatform);
 
   useEffect(() => {
     if (!copied) return undefined;
@@ -204,7 +212,7 @@ export default function ComposePage() {
     const source = aiPrompt.trim();
     if (!source) return;
 
-    setAiResult(`[${selectedAiPlatform}]\n${source}`);
+    setAiResult(buildPlatformCopyPreview(selectedAiPlatform, source));
   };
 
   const handleCopyAiResult = async () => {
@@ -408,16 +416,22 @@ export default function ComposePage() {
 
           <div className="ai-composer">
             <div className="ai-platform-row" aria-label="AI target platform">
-              {aiPlatforms.map((platform) => (
+              {SOCIAL_PLATFORM_RULES.map((platform) => (
                 <button
-                  key={platform}
+                  key={platform.id}
                   type="button"
-                  className={`ai-platform-pill${selectedAiPlatform === platform ? " active" : ""}`}
-                  onClick={() => setSelectedAiPlatform(platform)}
+                  className={`ai-platform-pill${selectedAiPlatform === platform.id ? " active" : ""}`}
+                  onClick={() => setSelectedAiPlatform(platform.id)}
                 >
-                  {platform}
+                  {platform.label}
                 </button>
               ))}
+            </div>
+
+            <div className="ai-platform-summary" aria-live="polite">
+              <span>{selectedAiRule.tone}</span>
+              <span>{selectedAiRule.length}</span>
+              <span>{selectedAiRule.format}</span>
             </div>
 
             <textarea
