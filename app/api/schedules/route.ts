@@ -5,7 +5,7 @@ import { createScheduledPost, listScheduledPosts } from "@/lib/scheduled-posts";
 type ScheduleRequestBody = {
   platform?: string;
   content?: string;
-  imageUrl?: string;
+  assetIds?: string[];
   scheduleAt?: string;
 };
 
@@ -43,6 +43,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "scheduleAt is required" }, { status: 400 });
   }
 
+  const assetIds = Array.isArray(body.assetIds) ? body.assetIds.map((assetId) => assetId.trim()).filter(Boolean) : [];
+  if (assetIds.length === 0) {
+    return NextResponse.json({ error: "assetIds is required for scheduled Instagram publishing" }, { status: 400 });
+  }
+
   const scheduledTime = Date.parse(scheduleAt);
   if (Number.isNaN(scheduledTime)) {
     return NextResponse.json({ error: "scheduleAt must be a valid ISO timestamp" }, { status: 400 });
@@ -55,7 +60,7 @@ export async function POST(req: Request) {
   const job = await createScheduledPost({
     platform,
     content,
-    imageUrl: body.imageUrl?.trim() || undefined,
+    assetIds,
     scheduleAt: new Date(scheduledTime).toISOString(),
   });
 

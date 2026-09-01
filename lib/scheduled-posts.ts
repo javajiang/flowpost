@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { getAssetPublicUrl, getPublicBaseUrl } from "@/lib/assets";
 import { publishInstagramImage } from "@/lib/instagram-publish";
 
 export type ScheduledPostStatus = "scheduled" | "running" | "succeeded" | "failed";
@@ -9,7 +10,7 @@ export type ScheduledPost = {
   id: string;
   platform: string;
   content: string;
-  imageUrl?: string;
+  assetIds: string[];
   scheduleAt: string;
   status: ScheduledPostStatus;
   createdAt: string;
@@ -22,7 +23,7 @@ export type ScheduledPost = {
 export type ScheduledPostInput = {
   platform: string;
   content: string;
-  imageUrl?: string;
+  assetIds: string[];
   scheduleAt: string;
 };
 
@@ -62,7 +63,7 @@ export async function createScheduledPost(input: ScheduledPostInput) {
     id: createId(),
     platform: input.platform,
     content: input.content,
-    imageUrl: input.imageUrl,
+    assetIds: input.assetIds,
     scheduleAt: input.scheduleAt,
     status: "scheduled",
     createdAt: now,
@@ -96,18 +97,23 @@ export async function runDueScheduledPosts(now = new Date()) {
         throw new Error(`Unsupported scheduled platform: ${job.platform}`);
       }
 
-      if (!job.imageUrl) {
-        throw new Error("Scheduled Instagram posts require an imageUrl.");
+      if (job.assetIds.length === 0) {
+        throw new Error("Scheduled Instagram posts require assetIds.");
       }
 
       if (!process.env.INSTAGRAM_ACCESS_TOKEN || !process.env.INSTAGRAM_USER_ID) {
         throw new Error("Instagram credentials are missing.");
       }
 
+      const assetId = job.assetIds[0];
+      if (!assetId) {
+        throw new Error("Scheduled Instagram posts require at least one asset.");
+      }
+
       const result = await publishInstagramImage({
         accessToken: process.env.INSTAGRAM_ACCESS_TOKEN,
         instagramUserId: process.env.INSTAGRAM_USER_ID,
-        imageUrl: job.imageUrl,
+        imageUrl: getAssetPublicUrl(assetId, getPublicBaseUrl()),
         caption: job.content,
         graphApiVersion: process.env.META_GRAPH_API_VERSION || "v22.0",
       });

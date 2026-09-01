@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 
+import { getAssetByIds, getAssetPublicUrl, getPublicBaseUrl } from "@/lib/assets";
 import { publishInstagramImage } from "@/lib/instagram-publish";
 import { createScheduledPost } from "@/lib/scheduled-posts";
 
 type PublishRequestBody = {
   platform?: string;
   content?: string;
-  imageUrl?: string;
+  assetIds?: string[];
   scheduleAt?: string | null;
   accessToken?: string;
   instagramUserId?: string;
@@ -36,7 +37,7 @@ export async function POST(req: Request) {
   }
 
   const caption = body.content?.trim() || "";
-  const imageUrl = getFirstString(body.imageUrl);
+  const assetIds = Array.isArray(body.assetIds) ? body.assetIds.map((assetId) => assetId.trim()).filter(Boolean) : [];
 
   if (body.scheduleAt) {
     const scheduledTime = Date.parse(body.scheduleAt);
@@ -48,14 +49,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "scheduleAt must be in the future" }, { status: 400 });
     }
 
-    if (!imageUrl) {
-      return NextResponse.json({ error: "imageUrl is required for scheduled Instagram publishing" }, { status: 400 });
+    if (assetIds.length === 0) {
+      return NextResponse.json({ error: "assetIds is required for scheduled Instagram publishing" }, { status: 400 });
     }
 
     const job = await createScheduledPost({
       platform,
       content: body.content?.trim() || "",
-      imageUrl,
+      assetIds,
       scheduleAt: new Date(scheduledTime).toISOString(),
     });
 
@@ -67,8 +68,8 @@ export async function POST(req: Request) {
     });
   }
 
-  if (!imageUrl) {
-    return NextResponse.json({ error: "imageUrl is required for Instagram publishing" }, { status: 400 });
+  if (assetIds.length === 0) {
+    return NextResponse.json({ error: "assetIds is required for Instagram publishing" }, { status: 400 });
   }
 
   const accessToken = getFirstString(body.accessToken, process.env.INSTAGRAM_ACCESS_TOKEN);
@@ -84,6 +85,14 @@ export async function POST(req: Request) {
   }
 
   try {
+    const assets = await getAssetByIds(assetIds);
+    const asset = assets[0];
+    if (!asset) {
+      return NextResponse.json({ error: "Could not resolve uploaded image asset" }, { status: 400 });
+    }
+
+    const imageUrl = getAssetPublicUrl(asset.id, getPublicBaseUrl());
+
     const result = await publishInstagramImage({
       accessToken,
       instagramUserId,

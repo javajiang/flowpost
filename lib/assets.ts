@@ -76,3 +76,26 @@ export async function getAssetById(assetId: string) {
   return assets.find((asset) => asset.id === assetId) ?? null;
 }
 
+export async function getAssetByIds(assetIds: string[]) {
+  const assets = await readAssets();
+  const wanted = new Set(assetIds);
+  return assets.filter((asset) => wanted.has(asset.id));
+}
+
+export function getAssetPublicUrl(assetId: string, baseUrl: string) {
+  return new URL(`/api/assets/${assetId}`, baseUrl).toString();
+}
+
+export function getPublicBaseUrl() {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (siteUrl) {
+    return siteUrl.startsWith("http://") || siteUrl.startsWith("https://") ? siteUrl : `https://${siteUrl}`;
+  }
+
+  const vercelUrl = process.env.VERCEL_URL?.trim();
+  if (vercelUrl) {
+    return vercelUrl.startsWith("http://") || vercelUrl.startsWith("https://") ? vercelUrl : `https://${vercelUrl}`;
+  }
+
+  return "http://localhost:3000";
+}
