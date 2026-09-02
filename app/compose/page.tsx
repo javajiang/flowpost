@@ -14,6 +14,16 @@ import {
 
 const networks = ["X", "Facebook", "Instagram", "LinkedIn", "TikTok", "YouTube", "Threads", "Bluesky"];
 
+const connectChannels = [
+  { id: "instagram", label: "Instagram", detail: "Business or Creator", accent: "ig" },
+  { id: "threads", label: "Threads", detail: "Profile", accent: "threads" },
+  { id: "linkedin", label: "LinkedIn", detail: "Page or Profile", accent: "linkedin" },
+  { id: "facebook", label: "Facebook", detail: "Page or Group", accent: "facebook" },
+  { id: "bluesky", label: "Bluesky", detail: "Profile", accent: "bluesky" },
+  { id: "youtube", label: "YouTube", detail: "Channel", accent: "youtube" },
+  { id: "tiktok", label: "TikTok", detail: "Account", accent: "tiktok" },
+];
+
 type ImportResponse = {
   sourceUrl: string;
   finalUrl: string;
@@ -85,6 +95,8 @@ export default function ComposePage() {
   const [publishError, setPublishError] = useState("");
   const [isPublishing, setIsPublishing] = useState(false);
   const [isScheduling, setIsScheduling] = useState(false);
+  const [isConnectOpen, setIsConnectOpen] = useState(false);
+  const [selectedConnectChannel, setSelectedConnectChannel] = useState(connectChannels[0]);
   const selectedAiRule = getSocialPlatformRule(selectedAiPlatform);
 
   useEffect(() => {
@@ -357,6 +369,11 @@ export default function ComposePage() {
     }
   };
 
+  const openConnectModal = () => {
+    setSelectedConnectChannel(connectChannels[0]);
+    setIsConnectOpen(true);
+  };
+
   const openImport = (mode: "text" | "url") => {
     setImportMode(mode);
     setImportError("");
@@ -609,6 +626,9 @@ export default function ComposePage() {
             <span>{publishError || publishMessage || "Instagram only for now"}</span>
           </div>
           <div className="publish-controls">
+            <button type="button" className="publish-button publish-button-secondary" onClick={openConnectModal}>
+              Connect a New Channel
+            </button>
             <input
               className="publish-schedule-input"
               type="datetime-local"
@@ -634,6 +654,43 @@ export default function ComposePage() {
           </div>
         </div>
       </footer>
+
+      {isConnectOpen ? (
+        <div className="connect-modal-backdrop" role="presentation" onClick={() => setIsConnectOpen(false)}>
+          <div className="connect-modal" role="dialog" aria-modal="true" aria-label="Connect a New Channel" onClick={(event) => event.stopPropagation()}>
+            <div className="connect-modal-header">
+              <h3>Connect a New Channel</h3>
+              <button type="button" className="connect-close" aria-label="Close" onClick={() => setIsConnectOpen(false)}>
+                ×
+              </button>
+            </div>
+
+            <div className="connect-grid" aria-label="Available channels">
+              {connectChannels.map((channel) => (
+                <button
+                  key={channel.id}
+                  type="button"
+                  className={`connect-card${selectedConnectChannel.id === channel.id ? " active" : ""}`}
+                  onClick={() => setSelectedConnectChannel(channel)}
+                >
+                  <span className={`connect-icon connect-${channel.accent}`}>{channel.label.slice(0, 2)}</span>
+                  <strong>{channel.label}</strong>
+                  <span>{channel.detail}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="connect-modal-footer">
+              <p>
+                Selected channel: <strong>{selectedConnectChannel.label}</strong>
+              </p>
+              <Link href={`/connect/${selectedConnectChannel.id}`} className="connect-continue">
+                Continue
+              </Link>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {importMode ? (
         <div className="import-modal-backdrop" role="presentation" onClick={() => setImportMode(null)}>
