@@ -28,3 +28,4 @@ pnpm-debug.log*
 # local schedule storage
 .flowpost-data/
 .flowpost-assets/
+.flowpost-integrations/

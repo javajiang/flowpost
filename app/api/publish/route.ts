@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getAssetByIds, getAssetPublicUrl, getPublicBaseUrl } from "@/lib/assets";
 import { publishInstagramImage } from "@/lib/instagram-publish";
 import { createScheduledPost } from "@/lib/scheduled-posts";
+import { resolveInstagramCredentials } from "@/lib/integrations";
 
 type PublishRequestBody = {
   platform?: string;
@@ -72,8 +73,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "assetIds is required for Instagram publishing" }, { status: 400 });
   }
 
-  const accessToken = getFirstString(body.accessToken, process.env.INSTAGRAM_ACCESS_TOKEN);
-  const instagramUserId = getFirstString(body.instagramUserId, process.env.INSTAGRAM_USER_ID);
+  const credentials = await resolveInstagramCredentials();
+  const accessToken = getFirstString(body.accessToken, credentials?.accessToken);
+  const instagramUserId = getFirstString(body.instagramUserId, credentials?.instagramUserId);
   const graphApiVersion = getFirstString(body.graphApiVersion, process.env.META_GRAPH_API_VERSION) || "v22.0";
 
   if (!accessToken) {
@@ -81,7 +83,7 @@ export async function POST(req: Request) {
   }
 
   if (!instagramUserId) {
-    return NextResponse.json({ error: "Instagram user id is required" }, { status: 400 });
+    return NextResponse.json({ error: "Connect Instagram first." }, { status: 400 });
   }
 
   try {

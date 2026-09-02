@@ -1150,6 +1150,14 @@ a {
   line-height: 1.5;
 }
 
+.connect-page-success {
+  color: #2f6f42;
+}
+
+.connect-page-error {
+  color: #8b2e2e;
+}
+
 .connect-page-actions {
   margin-top: 24px;
   display: flex;
@@ -1171,6 +1179,11 @@ a {
 
 .connect-page-button-secondary {
   background: #fff;
+}
+
+.connect-page-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .image-thumb-state,
