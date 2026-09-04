@@ -3,7 +3,8 @@ import path from "node:path";
 
 import { getAssetPublicUrl, getPublicBaseUrl } from "@/lib/assets";
 import { publishInstagramImage } from "@/lib/instagram-publish";
-import { resolveInstagramCredentials } from "@/lib/integrations";
+import { publishXPost } from "@/lib/x-publish";
+import { resolveInstagramCredentials, resolveXCredentials } from "@/lib/integrations";
 
 export type ScheduledPostStatus = "scheduled" | "running" | "succeeded" | "failed";
 
@@ -94,36 +95,52 @@ export async function runDueScheduledPosts(now = new Date()) {
     await writeJobs(jobs);
 
     try {
-      if (job.platform !== "instagram") {
+      if (job.platform === "instagram") {
+        if (job.assetIds.length === 0) {
+          throw new Error("Scheduled Instagram posts require assetIds.");
+        }
+
+        const credentials = await resolveInstagramCredentials();
+        if (!credentials) throw new Error("Connect Instagram first.");
+
+        const assetId = job.assetIds[0];
+        if (!assetId) {
+          throw new Error("Scheduled Instagram posts require at least one asset.");
+        }
+
+        const result = await publishInstagramImage({
+          accessToken: credentials.accessToken,
+          instagramUserId: credentials.instagramUserId,
+          imageUrl: getAssetPublicUrl(assetId, getPublicBaseUrl()),
+          caption: job.content,
+          graphApiVersion: process.env.META_GRAPH_API_VERSION || "v22.0",
+        });
+
+        job.status = "succeeded";
+        job.externalId = result.mediaId;
+        job.publishedAt = new Date().toISOString();
+        job.error = undefined;
+        job.updatedAt = new Date().toISOString();
+        results.push({ id: job.id, status: job.status, externalId: result.mediaId });
+      } else if (job.platform === "x") {
+        const credentials = await resolveXCredentials();
+        if (!credentials) throw new Error("Connect X first.");
+
+        const result = await publishXPost({
+          accessToken: credentials.accessToken,
+          text: job.content,
+          assetIds: job.assetIds,
+        });
+
+        job.status = "succeeded";
+        job.externalId = result.tweetId;
+        job.publishedAt = new Date().toISOString();
+        job.error = undefined;
+        job.updatedAt = new Date().toISOString();
+        results.push({ id: job.id, status: job.status, externalId: result.tweetId });
+      } else {
         throw new Error(`Unsupported scheduled platform: ${job.platform}`);
       }
-
-      if (job.assetIds.length === 0) {
-        throw new Error("Scheduled Instagram posts require assetIds.");
-      }
-
-      const credentials = await resolveInstagramCredentials();
-      if (!credentials) throw new Error("Connect Instagram first.");
-
-      const assetId = job.assetIds[0];
-      if (!assetId) {
-        throw new Error("Scheduled Instagram posts require at least one asset.");
-      }
-
-      const result = await publishInstagramImage({
-        accessToken: credentials.accessToken,
-        instagramUserId: credentials.instagramUserId,
-        imageUrl: getAssetPublicUrl(assetId, getPublicBaseUrl()),
-        caption: job.content,
-        graphApiVersion: process.env.META_GRAPH_API_VERSION || "v22.0",
-      });
-
-      job.status = "succeeded";
-      job.externalId = result.mediaId;
-      job.publishedAt = new Date().toISOString();
-      job.error = undefined;
-      job.updatedAt = new Date().toISOString();
-      results.push({ id: job.id, status: job.status, externalId: result.mediaId });
     } catch (error) {
       job.status = "failed";
       job.error = error instanceof Error ? error.message : "Publish failed";

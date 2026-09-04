@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import { getAssetByIds, getAssetPublicUrl, getPublicBaseUrl } from "@/lib/assets";
 import { publishInstagramImage } from "@/lib/instagram-publish";
 import { createScheduledPost } from "@/lib/scheduled-posts";
-import { resolveInstagramCredentials } from "@/lib/integrations";
+import { publishXPost } from "@/lib/x-publish";
+import { resolveInstagramCredentials, resolveXCredentials } from "@/lib/integrations";
 
 type PublishRequestBody = {
   platform?: string;
@@ -33,7 +34,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "platform is required" }, { status: 400 });
   }
 
-  if (platform !== "instagram") {
+  if (platform !== "instagram" && platform !== "x") {
     return NextResponse.json({ error: `Unsupported platform: ${platform}` }, { status: 400 });
   }
 
@@ -50,7 +51,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "scheduleAt must be in the future" }, { status: 400 });
     }
 
-    if (assetIds.length === 0) {
+    if (platform === "instagram" && assetIds.length === 0) {
       return NextResponse.json({ error: "assetIds is required for scheduled Instagram publishing" }, { status: 400 });
     }
 
@@ -69,44 +70,64 @@ export async function POST(req: Request) {
     });
   }
 
-  if (assetIds.length === 0) {
-    return NextResponse.json({ error: "assetIds is required for Instagram publishing" }, { status: 400 });
-  }
-
-  const credentials = await resolveInstagramCredentials();
-  const accessToken = getFirstString(body.accessToken, credentials?.accessToken);
-  const instagramUserId = getFirstString(body.instagramUserId, credentials?.instagramUserId);
-  const graphApiVersion = getFirstString(body.graphApiVersion, process.env.META_GRAPH_API_VERSION) || "v22.0";
-
-  if (!accessToken) {
-    return NextResponse.json({ error: "Instagram access token is required" }, { status: 400 });
-  }
-
-  if (!instagramUserId) {
-    return NextResponse.json({ error: "Connect Instagram first." }, { status: 400 });
-  }
-
   try {
-    const assets = await getAssetByIds(assetIds);
-    const asset = assets[0];
-    if (!asset) {
-      return NextResponse.json({ error: "Could not resolve uploaded image asset" }, { status: 400 });
+    if (platform === "instagram") {
+      if (assetIds.length === 0) {
+        return NextResponse.json({ error: "assetIds is required for Instagram publishing" }, { status: 400 });
+      }
+
+      const credentials = await resolveInstagramCredentials();
+      const accessToken = getFirstString(body.accessToken, credentials?.accessToken);
+      const instagramUserId = getFirstString(body.instagramUserId, credentials?.instagramUserId);
+      const graphApiVersion = getFirstString(body.graphApiVersion, process.env.META_GRAPH_API_VERSION) || "v22.0";
+
+      if (!accessToken) {
+        return NextResponse.json({ error: "Instagram access token is required" }, { status: 400 });
+      }
+
+      if (!instagramUserId) {
+        return NextResponse.json({ error: "Connect Instagram first." }, { status: 400 });
+      }
+
+      const assets = await getAssetByIds(assetIds);
+      const asset = assets[0];
+      if (!asset) {
+        return NextResponse.json({ error: "Could not resolve uploaded image asset" }, { status: 400 });
+      }
+
+      const imageUrl = getAssetPublicUrl(asset.id, getPublicBaseUrl());
+
+      const result = await publishInstagramImage({
+        accessToken,
+        instagramUserId,
+        imageUrl,
+        caption,
+        graphApiVersion,
+      });
+
+      return NextResponse.json({
+        platform: "instagram",
+        creationId: result.creationId,
+        mediaId: result.mediaId,
+      });
     }
 
-    const imageUrl = getAssetPublicUrl(asset.id, getPublicBaseUrl());
+    const credentials = await resolveXCredentials();
+    const accessToken = getFirstString(body.accessToken, credentials?.accessToken);
+    if (!accessToken) {
+      return NextResponse.json({ error: "X access token is required" }, { status: 400 });
+    }
 
-    const result = await publishInstagramImage({
+    const result = await publishXPost({
       accessToken,
-      instagramUserId,
-      imageUrl,
-      caption,
-      graphApiVersion,
+      text: caption,
+      assetIds,
     });
 
     return NextResponse.json({
-      platform: "instagram",
-      creationId: result.creationId,
-      mediaId: result.mediaId,
+      platform: "x",
+      tweetId: result.tweetId,
+      mediaIds: result.mediaIds,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Publish failed";

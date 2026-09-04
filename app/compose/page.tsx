@@ -15,6 +15,7 @@ import {
 const networks = ["X", "Facebook", "Instagram", "LinkedIn", "TikTok", "YouTube", "Threads", "Bluesky"];
 
 const connectChannels = [
+  { id: "x", label: "X", detail: "Profile", accent: "x" },
   { id: "instagram", label: "Instagram", detail: "Business or Creator", accent: "ig" },
   { id: "threads", label: "Threads", detail: "Profile", accent: "threads" },
   { id: "linkedin", label: "LinkedIn", detail: "Page or Profile", accent: "linkedin" },
@@ -87,6 +88,7 @@ export default function ComposePage() {
   const [importError, setImportError] = useState("");
   const [importSource, setImportSource] = useState("");
   const [selectedAiPlatform, setSelectedAiPlatform] = useState<SocialPlatformId>(DEFAULT_PLATFORM_ID);
+  const [selectedPublishPlatform, setSelectedPublishPlatform] = useState<"x" | "instagram">("x");
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiResult, setAiResult] = useState("");
   const [aiCopied, setAiCopied] = useState(false);
@@ -318,7 +320,7 @@ export default function ComposePage() {
       return;
     }
 
-    if (assetIds.length === 0) {
+    if (selectedPublishPlatform === "instagram" && assetIds.length === 0) {
       setPublishError("Upload at least one image before publishing.");
       return;
     }
@@ -343,15 +345,15 @@ export default function ComposePage() {
         headers: {
           "content-type": "application/json",
         },
-        body: JSON.stringify({
-          platform: "instagram",
-          content,
-          assetIds,
-          scheduleAt: scheduleTime || null,
-        }),
-      });
+          body: JSON.stringify({
+            platform: selectedPublishPlatform,
+            content,
+            assetIds,
+            scheduleAt: scheduleTime || null,
+          }),
+        });
 
-      const data = (await response.json()) as { error?: string; mediaId?: string; jobId?: string; scheduleAt?: string };
+      const data = (await response.json()) as { error?: string; mediaId?: string; tweetId?: string; jobId?: string; scheduleAt?: string };
       if (!response.ok) {
         throw new Error(data.error || "Publish failed.");
       }
@@ -359,7 +361,7 @@ export default function ComposePage() {
       if (data.jobId) {
         setPublishMessage(`Scheduled for ${data.scheduleAt || scheduleTime}`);
       } else {
-        setPublishMessage(`Published to Instagram${data.mediaId ? ` (${data.mediaId})` : ""}.`);
+        setPublishMessage(`Published to ${selectedPublishPlatform.toUpperCase()}${data.mediaId || data.tweetId ? ` (${data.mediaId || data.tweetId})` : ""}.`);
       }
     } catch (error) {
       setPublishError(error instanceof Error ? error.message : "Publish failed.");
@@ -457,7 +459,15 @@ export default function ComposePage() {
         <section className="compose-editor">
           <div className="network-row" aria-label="Platform tabs">
             {networks.map((item) => (
-              <button key={item} type="button" className="network-pill">
+              <button
+                key={item}
+                type="button"
+                className={`network-pill${selectedPublishPlatform === item.toLowerCase() ? " active" : ""}`}
+                onClick={() => {
+                  if (item === "X") setSelectedPublishPlatform("x");
+                  if (item === "Instagram") setSelectedPublishPlatform("instagram");
+                }}
+              >
                 {item}
               </button>
             ))}
@@ -622,8 +632,8 @@ export default function ComposePage() {
 
       <footer className="compose-footer">
         <div className="publish-panel">
-          <div className="publish-status">
-            <span>{publishError || publishMessage || "Instagram only for now"}</span>
+            <div className="publish-status">
+            <span>{publishError || publishMessage || `Publishing to ${selectedPublishPlatform.toUpperCase()}`}</span>
           </div>
           <div className="publish-controls">
             <button type="button" className="publish-button publish-button-secondary" onClick={openConnectModal}>

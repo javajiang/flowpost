@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 
 const channelLabels: Record<string, string> = {
+  x: "X",
   instagram: "Instagram",
   threads: "Threads",
   linkedin: "LinkedIn",
@@ -25,13 +26,13 @@ export default function ConnectChannelPage() {
   const connected = searchParams.get("connected") === "1";
 
   useEffect(() => {
-    if (platform !== "instagram") {
+    if (platform !== "instagram" && platform !== "x") {
       setStatus("empty");
       return;
     }
 
     void (async () => {
-      const response = await fetch("/api/integrations/instagram");
+      const response = await fetch(`/api/integrations/${platform}`);
       if (!response.ok) {
         setStatus("empty");
         return;
@@ -55,7 +56,9 @@ export default function ConnectChannelPage() {
         <p>
           {platform === "instagram"
             ? "Connect your Instagram professional account with Meta OAuth."
-            : "This channel is not wired yet."}
+            : platform === "x"
+              ? "Connect your X account with OAuth."
+              : "This channel is not wired yet."}
         </p>
         {error ? <p className="connect-page-error">{error}</p> : null}
         {connected || status === "connected" ? (
@@ -67,9 +70,9 @@ export default function ConnectChannelPage() {
           <Link href="/compose" className="connect-page-button connect-page-button-secondary">
             Back to compose
           </Link>
-          {platform === "instagram" ? (
-            <a href="/api/integrations/instagram/connect" className="connect-page-button">
-              {status === "connected" ? "Reconnect Instagram" : "Start connection"}
+          {platform === "instagram" || platform === "x" ? (
+            <a href={`/api/integrations/${platform}/connect`} className="connect-page-button">
+              {status === "connected" ? `Reconnect ${label}` : "Start connection"}
             </a>
           ) : (
             <button type="button" className="connect-page-button" disabled>

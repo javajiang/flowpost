@@ -31,7 +31,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "platform is required" }, { status: 400 });
   }
 
-  if (platform !== "instagram") {
+  if (platform !== "instagram" && platform !== "x") {
     return NextResponse.json({ error: `Unsupported platform: ${platform}` }, { status: 400 });
   }
 
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
   }
 
   const assetIds = Array.isArray(body.assetIds) ? body.assetIds.map((assetId) => assetId.trim()).filter(Boolean) : [];
-  if (assetIds.length === 0) {
+  if (platform === "instagram" && assetIds.length === 0) {
     return NextResponse.json({ error: "assetIds is required for scheduled Instagram publishing" }, { status: 400 });
   }
 
